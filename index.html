@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M&E Toolkit - Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4A90E2">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>M&E Toolkit Login</h1>
+        </header>
+        <main>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="button">Login</button>
+                <p id="loginError" class="error-message" style="display:none;"></p>
+            </form>
+        </main>
+        <footer>
+            <p>&copy; 2023 M&E Toolkit</p>
+        </footer>
+    </div>
+    <script src="config.js"></script>
+    <script src="login.js"></script>
+</body>
+</html>
