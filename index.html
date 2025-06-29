@@ -5,32 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M&E Toolkit - Login</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4A90E2">
+    <link rel="icon" href="assets/icon.png" type="image/png">
 </head>
 <body>
-    <div class="container">
-        <header>
+    <div class="login-container">
+        <header class="app-header minimal">
+            <!-- Placeholder for logo, to be added in assets folder -->
+            <!-- <img src="assets/logo.png" alt="App Logo" class="logo small-logo"> -->
             <h1>M&E Toolkit Login</h1>
         </header>
         <main>
             <form id="loginForm">
+                <h2>User Login</h2>
                 <div class="form-group">
                     <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
+                    <input type="text" id="username" name="username" required autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="button">Login</button>
+                <button type="submit" class="button primary-button">Login</button>
                 <p id="loginError" class="error-message" style="display:none;"></p>
             </form>
         </main>
-        <footer>
-            <p>&copy; 2023 M&E Toolkit</p>
+        <footer class="app-footer minimal-footer">
+            <p>&copy; 2023 M&E Toolkit for South Sudan</p>
         </footer>
     </div>
+    <!-- config.js might be needed if login.js depends on it, but typically not for basic login -->
     <script src="config.js"></script>
     <script src="login.js"></script>
 </body>

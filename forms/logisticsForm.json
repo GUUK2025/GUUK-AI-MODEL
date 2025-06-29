@@ -1,0 +1,70 @@
+{
+  "formId": "logistics",
+  "title": "Logistics Movement/Stock Form",
+  "sheetName": "Logistics",
+  "fields": [
+    {
+      "name": "logId",
+      "label": "Log ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "logDate",
+      "label": "Date",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "itemDescription",
+      "label": "Item Description",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "logType",
+      "label": "Logistics Type",
+      "type": "select",
+      "options": ["", "Stock In", "Stock Out", "Inventory Check", "Vehicle Movement", "Asset Transfer", "Other"],
+      "required": true
+    },
+    {
+      "name": "quantity",
+      "label": "Quantity (if applicable)",
+      "type": "number"
+    },
+    {
+      "name": "origin",
+      "label": "Origin (if applicable)",
+      "type": "text"
+    },
+    {
+      "name": "destination",
+      "label": "Destination (if applicable)",
+      "type": "text"
+    },
+    {
+      "name": "notes",
+      "label": "Notes/Remarks",
+      "type": "textarea"
+    },
+    {
+      "name": "logisticsOfficer",
+      "label": "Logistics Officer",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "readonly": true
+    }
+  ]
+}

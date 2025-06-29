@@ -1,0 +1,77 @@
+{
+  "formId": "gbv",
+  "title": "GBV Incident Reporting (Confidential)",
+  "sheetName": "GBV",
+  "fields": [
+    {
+      "name": "caseId",
+      "label": "Case ID (Local)",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true,
+      "placeholder": "Auto-generated or local system ID"
+    },
+    {
+      "name": "reportTimestamp",
+      "label": "Report Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "dateOfIncident",
+      "label": "Date of Incident (Approximate)",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "locationOfIncident",
+      "label": "Location of Incident (General Area)",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g., PoC Site Section B, Village Market"
+    },
+    {
+      "name": "typeOfViolence",
+      "label": "Type of Violence Experienced",
+      "type": "select",
+      "required": true,
+      "options": ["", "Sexual Assault", "Physical Assault", "Psychological/Emotional Abuse", "Denial of Resources, Opportunities or Services", "Forced Marriage", "Intimate Partner Violence (IPV)", "Other"]
+    },
+    {
+      "name": "survivorAgeGroup",
+      "label": "Survivor Age Group",
+      "type": "select",
+      "options": ["", "0-5", "6-11", "12-17", "18-24", "25-49", "50+", "Unknown"]
+    },
+     {
+      "name": "survivorSex",
+      "label": "Survivor Sex",
+      "type": "select",
+      "options": ["", "Female", "Male", "Other", "Unknown/Prefer not to say"]
+    },
+    {
+      "name": "servicesProvided",
+      "label": "Immediate Services Provided/Referred To",
+      "type": "textarea",
+      "placeholder": "e.g., Medical care, Psychosocial support, Safety planning, Legal aid, Shelter..."
+    },
+    {
+      "name": "caseWorker",
+      "label": "Case Worker Name/ID",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "required": true,
+      "readonly": true
+    },
+    {
+      "name": "consentForSharing",
+      "label": "Consent for Sharing Non-Identifiable Data (Yes/No)",
+      "type": "select",
+      "required": true,
+      "options": ["", "Yes", "No"]
+    }
+  ]
+}

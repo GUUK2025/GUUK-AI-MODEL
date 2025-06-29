@@ -1,0 +1,60 @@
+{
+  "formId": "fsl",
+  "title": "FSL Activity Monitoring",
+  "sheetName": "FSL",
+  "fields": [
+    {
+      "name": "entryId",
+      "label": "Entry ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "activityDate",
+      "label": "Activity Date",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "location",
+      "label": "Location",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "fslActivity",
+      "label": "FSL Activity",
+      "type": "select",
+      "options": ["", "Food Distribution", "Seed Distribution", "Tool Distribution", "Agricultural Training", "Livestock Support", "Cash Transfer", "Other"],
+      "required": true
+    },
+    {
+      "name": "householdsReached",
+      "label": "Number of Households Reached",
+      "type": "number"
+    },
+    {
+      "name": "notes",
+      "label": "Observations/Challenges",
+      "type": "textarea"
+    },
+    {
+      "name": "fieldOfficer",
+      "label": "Field Officer",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "readonly": true
+    }
+  ]
+}

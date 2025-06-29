@@ -1,0 +1,70 @@
+{
+  "formId": "health",
+  "title": "Health Monitoring Form",
+  "sheetName": "Health",
+  "fields": [
+    {
+      "name": "entryId",
+      "label": "Entry ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true,
+      "placeholder": "Auto-generated"
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "facilityName",
+      "label": "Facility Name",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g., Juba Teaching Hospital"
+    },
+    {
+      "name": "reportingDate",
+      "label": "Reporting Date",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "facilityType",
+      "label": "Type of Facility",
+      "type": "select",
+      "required": true,
+      "options": ["", "PHCU", "PHCC", "Hospital", "Clinic", "Mobile Clinic", "Other"]
+    },
+    {
+      "name": "servicesOffered",
+      "label": "Key Services Observed/Offered",
+      "type": "textarea",
+      "placeholder": "e.g., OPD, EPI, ANC, PNC, Deliveries, Lab services..."
+    },
+    {
+      "name": "officerInCharge",
+      "label": "Officer in Charge / Contact Person",
+      "type": "text"
+    },
+    {
+      "name": "dataCollector",
+      "label": "Data Collector Name",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "required": true,
+      "readonly": true
+    },
+    {
+        "name": "overallComments",
+        "label": "Overall Comments/Observations",
+        "type": "textarea",
+        "placeholder": "Any challenges, successes, or general notes."
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "formId": "wash",
+  "title": "WASH Activity Monitoring",
+  "sheetName": "WASH",
+  "fields": [
+    {
+      "name": "entryId",
+      "label": "Entry ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true,
+      "placeholder": "Auto-generated"
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "activityDate",
+      "label": "Date of Activity",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "locationName",
+      "label": "Location (Payam/Boma/Site)",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g., Mingkaman IDP Camp, Sector 1"
+    },
+    {
+      "name": "activityType",
+      "label": "WASH Activity Type",
+      "type": "select",
+      "required": true,
+      "options": ["", "Hygiene Promotion Session", "Latrine Construction Monitoring", "Water Point Functionality Check", "Solid Waste Management Assessment", "Distribution of WASH NFIs", "Other"]
+    },
+    {
+      "name": "numberOfParticipants",
+      "label": "Number of Participants/Beneficiaries (if applicable)",
+      "type": "number",
+      "min": 0,
+      "placeholder": "Enter a number"
+    },
+    {
+      "name": "waterSourceCondition",
+      "label": "Water Source Condition (if applicable)",
+      "type": "select",
+      "options": ["", "Functional", "Partially Functional", "Non-Functional", "N/A"]
+    },
+    {
+      "name": "keyObservations",
+      "label": "Key Observations/Findings",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "Describe observations, challenges, progress..."
+    },
+    {
+      "name": "dataCollector",
+      "label": "Data Collector Name",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "required": true,
+      "readonly": true
+    }
+  ]
+}

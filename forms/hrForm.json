@@ -1,0 +1,56 @@
+{
+  "formId": "hr",
+  "title": "HR Record Form",
+  "sheetName": "HR",
+  "fields": [
+    {
+      "name": "recordId",
+      "label": "Record ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "effectiveDate",
+      "label": "Effective Date",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "employeeName",
+      "label": "Employee Name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "recordType",
+      "label": "Record Type",
+      "type": "select",
+      "options": ["", "Recruitment", "Leave Request", "Performance Review", "Training Attendance", "Grievance", "Exit Interview", "Other"],
+      "required": true
+    },
+    {
+      "name": "details",
+      "label": "Details",
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "name": "hrOfficer",
+      "label": "HR Officer",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "readonly": true
+    }
+  ]
+}

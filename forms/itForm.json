@@ -1,0 +1,63 @@
+{
+  "formId": "it",
+  "title": "IT Support Ticket / Asset Log",
+  "sheetName": "IT",
+  "fields": [
+    {
+      "name": "ticketId",
+      "label": "Ticket/Log ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "requestDate",
+      "label": "Request Date",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "userName",
+      "label": "User/Department Name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "issueType",
+      "label": "Issue Type / Asset Type",
+      "type": "select",
+      "options": ["", "Hardware Issue", "Software Issue", "Network Problem", "New Equipment Request", "Asset Assignment", "Asset Return", "Other"],
+      "required": true
+    },
+    {
+      "name": "description",
+      "label": "Description of Issue / Asset Details",
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "name": "status",
+      "label": "Status",
+      "type": "select",
+      "options": ["", "Open", "In Progress", "Resolved", "Closed", "Logged"],
+      "default": "Open"
+    },
+    {
+      "name": "itOfficer",
+      "label": "IT Officer",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "readonly": true
+    }
+  ]
+}

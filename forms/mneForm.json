@@ -1,0 +1,72 @@
+{
+  "formId": "mne",
+  "title": "M&E Data Collection Form",
+  "sheetName": "MNE",
+  "fields": [
+    {
+      "name": "dataEntryId",
+      "label": "Data Entry ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "collectionDate",
+      "label": "Data Collection Date",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "project",
+      "label": "Project/Program Name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "indicator",
+      "label": "Indicator Monitored",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "indicatorValue",
+      "label": "Indicator Value",
+      "type": "text",
+      "placeholder": "Enter value (numeric or text)"
+    },
+    {
+      "name": "disaggregation",
+      "label": "Disaggregation (if any)",
+      "type": "text",
+      "placeholder": "e.g., Male: 10, Female: 15"
+    },
+    {
+      "name": "source",
+      "label": "Data Source",
+      "type": "text",
+      "placeholder": "e.g., Survey, KII, FGD, Observation"
+    },
+    {
+      "name": "comments",
+      "label": "Comments/Notes",
+      "type": "textarea"
+    },
+    {
+      "name": "mneOfficer",
+      "label": "M&E Officer",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "readonly": true
+    }
+  ]
+}

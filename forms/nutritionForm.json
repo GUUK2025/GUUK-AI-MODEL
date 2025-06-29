@@ -1,0 +1,60 @@
+{
+  "formId": "nutrition",
+  "title": "Nutrition Program Monitoring",
+  "sheetName": "Nutrition",
+  "fields": [
+    {
+      "name": "entryId",
+      "label": "Entry ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "activityDate",
+      "label": "Activity Date",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "location",
+      "label": "Location/Site",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "activityType",
+      "label": "Activity Type",
+      "type": "select",
+      "options": ["", "MUAC Screening", "Food Distribution", "IYCF Counseling", "Other"],
+      "required": true
+    },
+    {
+      "name": "beneficiariesReached",
+      "label": "Beneficiaries Reached",
+      "type": "number"
+    },
+    {
+      "name": "notes",
+      "label": "Notes/Observations",
+      "type": "textarea"
+    },
+    {
+      "name": "dataCollector",
+      "label": "Data Collector",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "readonly": true
+    }
+  ]
+}

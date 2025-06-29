@@ -1,111 +1,138 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // Authentication check
+document.addEventListener('DOMContentLoaded', async () => {
+    // --- Authentication & User Info ---
     const loggedInUser = localStorage.getItem('loggedInUser');
     const userRole = localStorage.getItem('userRole');
+    const userNameDisplay = localStorage.getItem('userNameDisplay');
 
     if (!loggedInUser || !userRole) {
         window.location.href = 'index.html'; // Redirect to login if not authenticated
         return;
     }
 
-    // Display user role
-    const userRoleDisplay = document.getElementById('userRoleDisplay');
-    if (userRoleDisplay) {
-        userRoleDisplay.textContent = `Role: ${userRole}`;
-    }
+    document.getElementById('userNameDisplay').textContent = userNameDisplay || loggedInUser;
+    document.getElementById('userRoleDisplay').textContent = userRole;
 
-    // Logout button
-    const logoutButton = document.getElementById('logoutButton');
-    if (logoutButton) {
-        logoutButton.addEventListener('click', () => {
-            if (typeof handleLogout === 'function') {
-                handleLogout();
-            } else { // Fallback
-                localStorage.removeItem('loggedInUser');
-                localStorage.removeItem('userRole');
-                localStorage.removeItem('pendingSubmissions');
-                window.location.href = 'index.html';
-            }
+    document.getElementById('logoutButton').addEventListener('click', () => {
+        if (typeof handleUserLogout === 'function') {
+            handleUserLogout();
+        } else { // Fallback
+            console.error("handleUserLogout function not found from login.js");
+            localStorage.clear(); // Basic clear as fallback
+            window.location.href = 'index.html';
+        }
+    });
+
+    // --- DOM Element References ---
+    const formNavList = document.getElementById('formNavList');
+    const viewPendingLink = document.getElementById('viewPendingLink');
+    const pendingCountSpan = document.getElementById('pendingCount');
+
+    const currentFormTitleH2 = document.getElementById('currentFormTitle');
+    const welcomeMessageP = document.getElementById('welcomeMessage');
+    const dynamicFormContainer = document.getElementById('dynamicFormContainer');
+    const pendingSubmissionsContainer = document.getElementById('pendingSubmissionsContainer');
+
+    const statusMessagesContainer = document.getElementById('statusMessagesContainer');
+    const offlineIndicatorDiv = document.getElementById('offlineIndicator');
+    // const syncIndicatorDiv = document.getElementById('syncIndicator'); // Not directly used for messages, statusMessagesContainer is.
+
+    let pendingSubmissions = JSON.parse(localStorage.getItem('pendingSubmissions')) || [];
+    let currentLoadedFormDefinition = null; // To store the definition of the currently loaded form
+    let currentEditingSubmissionId = null; // To store the ID of a pending submission being edited
+
+    // --- Initialization ---
+    await populateFormNavigation();
+    updatePendingCount();
+    checkOnlineStatus();
+
+    window.addEventListener('online', () => { checkOnlineStatus(); attemptSyncAllSubmissions(false); });
+    window.addEventListener('offline', checkOnlineStatus);
+
+    if (viewPendingLink) {
+        viewPendingLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            displayPendingSubmissionsView();
         });
     }
 
-    const formTabsContainer = document.getElementById('formTabsContainer')?.querySelector('ul');
-    const formDisplayArea = document.getElementById('formDisplayArea');
-    const initialMessage = document.getElementById('initialMessage');
-    const offlineStatusDiv = document.getElementById('offlineStatus');
-    const syncNotificationDiv = document.getElementById('syncNotification');
-    const syncCountSpan = document.getElementById('syncCount');
-    const retrySyncButton = document.getElementById('retrySyncButton');
-    const viewPendingButton = document.getElementById('viewPendingButton');
-    const syncStatusDiv = document.getElementById('syncStatus');
+    // --- Navigation & Form Loading ---
+    async function populateFormNavigation() {
+        if (!formNavList || typeof FORM_DEFINITIONS === 'undefined') {
+            console.error("Form navigation list or FORM_DEFINITIONS not found.");
+            return;
+        }
+        formNavList.innerHTML = ''; // Clear existing
 
-    let pendingSubmissions = JSON.parse(localStorage.getItem('pendingSubmissions')) || [];
-    let currentFormId = null; // To keep track of which form is currently displayed/active
-
-    // --- Initialize ---
-    populateFormTabs();
-    updateSyncNotification();
-    checkOnlineStatus();
-
-    window.addEventListener('online', checkOnlineStatus);
-    window.addEventListener('offline', checkOnlineStatus);
-
-    if (retrySyncButton) {
-        retrySyncButton.addEventListener('click', () => attemptSyncSubmissions(true));
-    }
-    if(viewPendingButton) {
-        viewPendingButton.addEventListener('click', displayPendingSubmissions);
-    }
-
-
-    // --- Tab Generation & Handling ---
-    function populateFormTabs() {
-        if (!formTabsContainer || !window.APP_CONFIG || !window.APP_CONFIG.forms) return;
-        formTabsContainer.innerHTML = ''; // Clear existing tabs
-
-        Object.keys(window.APP_CONFIG.forms).forEach(formId => {
-            const formConfig = window.APP_CONFIG.forms[formId];
+        for (const key in FORM_DEFINITIONS) {
+            const formInfo = FORM_DEFINITIONS[key];
             const listItem = document.createElement('li');
             const link = document.createElement('a');
             link.href = '#';
-            link.textContent = formConfig.title;
-            link.dataset.formid = formId;
-            link.classList.add('tab-link');
-            link.addEventListener('click', (e) => {
+            link.textContent = formInfo.title;
+            link.dataset.formkey = key; // Use the key from FORM_DEFINITIONS
+            link.addEventListener('click', async (e) => {
                 e.preventDefault();
-                handleTabClick(formId, link);
+                await loadAndRenderForm(key);
+                // Store last active form to potentially reopen on next visit
+                localStorage.setItem('lastActiveFormId', key);
             });
             listItem.appendChild(link);
-            formTabsContainer.appendChild(listItem);
-        });
+            formNavList.appendChild(listItem);
+        }
+
+        // Try to load the last active form
+        const lastActiveFormId = localStorage.getItem('lastActiveFormId');
+        if (lastActiveFormId && FORM_DEFINITIONS[lastActiveFormId]) {
+            await loadAndRenderForm(lastActiveFormId);
+        }
     }
 
-    function handleTabClick(formId, clickedLink) {
-        currentFormId = formId;
-        if (initialMessage) initialMessage.style.display = 'none';
+    async function loadAndRenderForm(formKey, existingData = null, submissionIdToEdit = null) {
+        if (typeof FORM_DEFINITIONS === 'undefined' || !FORM_DEFINITIONS[formKey]) {
+            showStatusMessage(`Form definition for '${formKey}' not found in config.`, 'error');
+            return;
+        }
 
-        document.querySelectorAll('.tab-link').forEach(link => link.classList.remove('active'));
-        clickedLink.classList.add('active');
+        const formInfo = FORM_DEFINITIONS[formKey];
+        try {
+            const response = await fetch(formInfo.file);
+            if (!response.ok) {
+                throw new Error(`Failed to load form definition: ${response.statusText}`);
+            }
+            currentLoadedFormDefinition = await response.json();
+            currentEditingSubmissionId = submissionIdToEdit; // Store if we are editing
 
-        renderForm(formId);
+            // Update UI
+            if (welcomeMessageP) welcomeMessageP.classList.add('hidden');
+            if (pendingSubmissionsContainer) pendingSubmissionsContainer.classList.add('hidden');
+            if (dynamicFormContainer) dynamicFormContainer.classList.remove('hidden');
+
+            if (currentFormTitleH2) currentFormTitleH2.textContent = existingData ? `Edit: ${currentLoadedFormDefinition.title}` : currentLoadedFormDefinition.title;
+
+            renderForm(currentLoadedFormDefinition, existingData);
+
+            // Highlight active nav link
+            document.querySelectorAll('#formNavList a').forEach(a => a.classList.remove('active'));
+            const activeLink = document.querySelector(`#formNavList a[data-formkey="${formKey}"]`);
+            if (activeLink) activeLink.classList.add('active');
+
+        } catch (error) {
+            console.error("Error loading/rendering form:", error);
+            showStatusMessage(`Error loading form '${formInfo.title}': ${error.message}`, 'error');
+            if (dynamicFormContainer) dynamicFormContainer.innerHTML = `<p class="error-message">Could not load form: ${formInfo.title}.</p>`;
+        }
     }
 
-    // --- Form Rendering ---
-    function renderForm(formId, existingData = null, submissionIdToEdit = null) {
-        if (!formDisplayArea || !window.APP_CONFIG || !window.APP_CONFIG.forms[formId]) return;
-
-        const formConfig = window.APP_CONFIG.forms[formId];
-        formDisplayArea.innerHTML = ''; // Clear previous form
+    // --- Form Rendering Engine ---
+    function renderForm(formDef, existingData = null) {
+        if (!dynamicFormContainer) return;
+        dynamicFormContainer.innerHTML = ''; // Clear previous form
 
         const formElement = document.createElement('form');
-        formElement.id = `${formId}-form`;
-        formElement.dataset.formid = formId; // Store formId for submission logic
+        formElement.id = `${formDef.formId}-form`;
+        formElement.dataset.formid = formDef.formId;
 
-        const formTitle = document.createElement('h2');
-        formTitle.textContent = existingData ? `Edit: ${formConfig.title}` : formConfig.title;
-        formElement.appendChild(formTitle);
-
-        formConfig.fields.forEach(field => {
+        formDef.fields.forEach(field => {
             const group = document.createElement('div');
             group.classList.add('form-group');
 
@@ -114,461 +141,362 @@ document.addEventListener('DOMContentLoaded', () => {
             label.textContent = field.label + (field.required ? ' *' : '');
             group.appendChild(label);
 
-            if (field.type === 'calculated') {
-                const display = document.createElement('p');
-                display.id = field.name + 'Display'; // e.g., dqaCalculatedScoreDisplay
-                display.textContent = existingData?.[field.name] || '0';
-                if (field.readonly) display.classList.add('read-only-field'); // Optional styling
-                group.appendChild(display);
-                // Hidden input to store the value if needed, though calculated might not be submitted directly
-                const hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.id = field.name;
-                hiddenInput.name = field.name;
-                hiddenInput.value = existingData?.[field.name] || '0';
-                group.appendChild(hiddenInput);
-
-            } else if (field.type === 'textarea') {
-                const textarea = document.createElement('textarea');
-                textarea.id = field.name;
-                textarea.name = field.name;
-                if (field.required) textarea.required = true;
-                if (field.placeholder) textarea.placeholder = field.placeholder;
-                textarea.value = existingData?.[field.name] || '';
-                group.appendChild(textarea);
+            let inputElement;
+            if (field.type === 'textarea') {
+                inputElement = document.createElement('textarea');
             } else if (field.type === 'select') {
-                const select = document.createElement('select');
-                select.id = field.name;
-                select.name = field.name;
-                if (field.required) select.required = true;
-
-                // Add a default blank option
+                inputElement = document.createElement('select');
+                // Add a default blank/prompt option
                 const defaultOption = document.createElement('option');
                 defaultOption.value = "";
-                defaultOption.textContent = `-- Select ${field.label} --`;
-                if (field.required) defaultOption.disabled = true; // Make it unselectable if required
-                if (!existingData?.[field.name]) defaultOption.selected = true; // Select by default if no value
-                select.appendChild(defaultOption);
+                defaultOption.textContent = field.placeholder || `-- Select ${field.label.replace(' *','')} --`;
+                if (field.required && !existingData?.[field.name]) defaultOption.selected = true;
+                // if (field.required) defaultOption.disabled = true; // Makes it unselectable once another chosen
+                inputElement.appendChild(defaultOption);
 
-
-                field.options.forEach(optValue => {
+                field.options?.forEach(optValue => {
                     const option = document.createElement('option');
-                    option.value = optValue;
+                    option.value = optValue; // Assuming optValue is a simple string. If object, use optValue.value and optValue.label
                     option.textContent = optValue;
-                    if (existingData?.[field.name] === optValue) option.selected = true;
-                    select.appendChild(option);
+                    inputElement.appendChild(option);
                 });
-                group.appendChild(select);
-            } else { // input types: text, date, datetime-local, number
-                const input = document.createElement('input');
-                input.type = field.type;
-                input.id = field.name;
-                input.name = field.name;
-                if (field.required) input.required = true;
-                if (field.placeholder) input.placeholder = field.placeholder;
-                if (field.min) input.min = field.min;
-                if (field.max) input.max = field.max;
-                if (field.readonlyOnEdit && existingData) input.readOnly = true;
-
-
-                // Auto-population logic
-                let defaultValue = '';
-                if (field.autoPopulate && !existingData) { // Only auto-populate for new forms
-                    if (field.autoPopulate === 'date') defaultValue = getCurrentDate();
-                    else if (field.autoPopulate === 'datetime') defaultValue = getCurrentDateTimeLocal();
-                }
-                if (field.fromUser === 'username' && !existingData) {
-                     defaultValue = localStorage.getItem('loggedInUser') || '';
-                }
-
-                input.value = existingData?.[field.name] || defaultValue;
-
-                if (field.isId && !existingData) { // Auto-generate ID for new forms if it's an ID field
-                    input.value = generateUniqueId(formId.substring(0,3).toLowerCase());
-                    input.readOnly = true; // Usually, IDs are not user-editable once generated
-                } else if (field.isId && existingData) {
-                    input.readOnly = true; // ID should not be editable
-                }
-
-
-                group.appendChild(input);
-                if (field.isDqaScore) { // For DQA score fields, add event listener to calculate total
-                    input.addEventListener('input', () => calculateDqaScore(formElement, formConfig.fields));
-                }
+            } else { // text, date, datetime-local, number, email, tel etc.
+                inputElement = document.createElement('input');
+                inputElement.type = field.type;
             }
+
+            inputElement.id = field.name;
+            inputElement.name = field.name;
+            if (field.required) inputElement.required = true;
+            if (field.placeholder && field.type !== 'select') inputElement.placeholder = field.placeholder;
+            if (field.min) inputElement.min = field.min;
+            if (field.max) inputElement.max = field.max;
+            if (field.pattern) inputElement.pattern = field.pattern;
+            if (field.readonly) inputElement.readOnly = true;
+            if (field.readonlyOnEdit && existingData) inputElement.readOnly = true;
+
+
+            // Auto-population & Default values
+            let valueToSet = existingData ? existingData[field.name] : (field.default || '');
+            if (!existingData) { // Only auto-populate for new forms
+                if (field.autoPopulate) {
+                    if (field.autoPopulate === 'date') valueToSet = getCurrentDate();
+                    else if (field.autoPopulate === 'datetime') valueToSet = getCurrentDateTimeLocal();
+                }
+                if (field.fromUser) { // e.g. fromUser: "userNameDisplay" or "userRole"
+                    valueToSet = localStorage.getItem(field.fromUser) || '';
+                }
+                if (field.isId) {
+                    valueToSet = generateUniqueId(formDef.formId.substring(0,3));
+                    inputElement.readOnly = true;
+                }
+            } else if (existingData && field.isId) { // If editing, ID is always readonly
+                 inputElement.readOnly = true;
+            }
+            inputElement.value = valueToSet;
+
+            group.appendChild(inputElement);
             formElement.appendChild(group);
         });
 
+        // Action Buttons
+        const buttonGroup = document.createElement('div');
+        buttonGroup.classList.add('button-group');
+
         const submitButton = document.createElement('button');
         submitButton.type = 'submit';
-        submitButton.textContent = existingData ? 'Update Submission' : 'Submit Form';
-        submitButton.classList.add('button');
-        formElement.appendChild(submitButton);
+        submitButton.textContent = existingData ? 'Update Offline Record' : 'Submit Online';
+        submitButton.classList.add('button', 'submit');
+        buttonGroup.appendChild(submitButton);
 
-        if (existingData && submissionIdToEdit) { // If editing a pending submission
+        const saveOfflineButton = document.createElement('button');
+        saveOfflineButton.type = 'button'; // Important: not submit
+        saveOfflineButton.textContent = existingData ? 'Save Changes Offline' : 'Save Offline';
+        saveOfflineButton.classList.add('button', 'save-offline');
+        saveOfflineButton.addEventListener('click', () => collectAndSaveForm(formElement, formDef, true, currentEditingSubmissionId));
+        buttonGroup.appendChild(saveOfflineButton);
+
+        if (existingData) { // If editing a PENDING submission
             const cancelButton = document.createElement('button');
             cancelButton.type = 'button';
             cancelButton.textContent = 'Cancel Edit';
-            cancelButton.classList.add('button', 'secondary');
-            cancelButton.style.marginLeft = '10px';
-            cancelButton.addEventListener('click', () => {
-                displayPendingSubmissions(); // Go back to pending list
-            });
-            formElement.appendChild(cancelButton);
+            cancelButton.classList.add('button', 'cancel');
+            cancelButton.addEventListener('click', displayPendingSubmissionsView); // Go back to pending list
+            buttonGroup.appendChild(cancelButton);
         }
 
 
-        formElement.addEventListener('submit', (event) => {
+        formElement.appendChild(buttonGroup);
+        formElement.addEventListener('submit', (event) => { // Handles "Submit Online" button
             event.preventDefault();
-            const formData = new FormData(formElement);
-            const data = Object.fromEntries(formData.entries());
-
-            // Ensure calculated fields are included
-            formConfig.fields.forEach(field => {
-                if (field.type === 'calculated') {
-                    const displayElement = document.getElementById(field.name + 'Display');
-                    if (displayElement) data[field.name] = displayElement.textContent;
-                    // Also update the hidden input if it exists
-                     const hiddenInput = document.getElementById(field.name);
-                     if(hiddenInput) data[field.name] = hiddenInput.value;
-                }
-            });
-
-
-            // If editing, submissionIdToEdit will be the original localSubmissionId
-            // If new, it will be null.
-            handleFormSubmission(formId, data, submissionIdToEdit);
-            formElement.reset(); // Reset form after processing
-            renderForm(formId); // Re-render the blank form for next entry
+            collectAndSaveForm(formElement, formDef, false, currentEditingSubmissionId); // false for !isOfflineSave
         });
 
-        formDisplayArea.appendChild(formElement);
-
-        // Initial DQA score calculation if it's a DQA form and editing/viewing
-        if (formConfig.fields.some(f => f.isDqaScore) && (existingData || formId === "DQAChecklists")) {
-            calculateDqaScore(formElement, formConfig.fields);
-        }
+        dynamicFormContainer.appendChild(formElement);
     }
 
-    // --- DQA Score Calculation ---
-    function calculateDqaScore(formElement, fields) {
-        if (!formElement || !fields) return;
-        const scoreFields = fields.filter(f => f.isDqaScore);
-        let totalScore = 0;
-        let count = 0;
-        scoreFields.forEach(field => {
-            const inputElement = formElement.elements[field.name];
-            if (inputElement && inputElement.value) {
-                const value = parseFloat(inputElement.value);
-                if (!isNaN(value)) {
-                    totalScore += value;
-                    count++;
-                }
-            }
-        });
-        const averageScore = count > 0 ? (totalScore / count).toFixed(2) : 0;
-        const calculatedScoreDisplay = formElement.querySelector('#dqaCalculatedScoreDisplay');
-        const calculatedScoreInput = formElement.elements['dqaCalculatedScore']; // Hidden input
-
-        if (calculatedScoreDisplay) {
-            calculatedScoreDisplay.textContent = `${averageScore}%`;
+    function collectAndSaveForm(formElement, formDef, isOfflineSave, editingSubmissionId = null) {
+        if (!formElement.checkValidity()) {
+            formElement.reportValidity(); // Show HTML5 validation messages
+            showStatusMessage("Please fill all required fields correctly.", "warning");
+            return;
         }
-        if (calculatedScoreInput) {
-            calculatedScoreInput.value = averageScore;
-        }
-    }
 
+        const formData = new FormData(formElement);
+        const dataPayload = Object.fromEntries(formData.entries());
 
-    // --- Form Submission & Offline Handling ---
-    function handleFormSubmission(formId, data, editingSubmissionId = null) {
         const submission = {
             id: editingSubmissionId || generateUniqueId('sub'), // Use existing ID if editing, else new
-            formId: formId, // e.g., "SupervisorVerifications"
-            sheetName: window.APP_CONFIG.forms[formId].sheetName, // Get sheetName from config
-            payload: data,
+            formId: formDef.formId,
+            formTitle: formDef.title, // For display in pending list
+            sheetName: formDef.sheetName || FORM_DEFINITIONS[formDef.formId]?.sheetName || formDef.formId, // Ensure sheetName
+            payload: dataPayload,
             submittedAt: new Date().toISOString()
         };
 
-        if (editingSubmissionId) { // If we are editing an existing PENDING submission
-            const index = pendingSubmissions.findIndex(s => s.id === editingSubmissionId);
-            if (index > -1) {
-                pendingSubmissions[index] = submission; // Update it
-            }
+        if (isOfflineSave || !navigator.onLine) {
+            saveSubmissionLocally(submission, editingSubmissionId);
+            showStatusMessage(`'${formDef.title}' data saved locally. Sync when online.`, 'info');
+            if (editingSubmissionId) displayPendingSubmissionsView(); // Refresh pending list if an edit was saved
+            else formElement.reset(); // Reset for new entry
+            loadAndRenderForm(formDef.formId); // Re-render blank form for next entry (or could clear current)
+        } else {
+            // Attempt online submission
+            submitDataToBackend([submission]); // Backend expects an array
+        }
+         // After any save/submit, re-render the current form blank for a new entry if not editing
+        if (!editingSubmissionId) {
+            loadAndRenderForm(formDef.formId);
+        }
+    }
+
+    function saveSubmissionLocally(submission, editingId) {
+        if (editingId) {
+            const index = pendingSubmissions.findIndex(s => s.id === editingId);
+            if (index > -1) pendingSubmissions[index] = submission;
+            else pendingSubmissions.push(submission); // Should not happen if editingId is valid
         } else {
             pendingSubmissions.push(submission);
         }
-
         localStorage.setItem('pendingSubmissions', JSON.stringify(pendingSubmissions));
-        updateSyncNotification();
-        showStatusMessage(`Form '${window.APP_CONFIG.forms[formId].title}' data ${editingSubmissionId ? 'updated locally' : 'saved locally'}. Attempting to sync...`, 'info');
-
-        attemptSyncSubmissions();
-
-        // After submission (new or edit), if it was an edit, go back to pending list.
-        // If it was a new submission, the form re-renders blank.
-        if (editingSubmissionId) {
-            displayPendingSubmissions();
-        } else {
-             // Re-render the current form blank for a new entry
-            const activeTabLink = formTabsContainer.querySelector('.tab-link.active');
-            if (activeTabLink) {
-                 renderForm(activeTabLink.dataset.formid);
-            } else if (currentFormId) { // Fallback if no active tab somehow (should not happen)
-                 renderForm(currentFormId);
-            }
-        }
+        updatePendingCount();
     }
 
-    async function attemptSyncSubmissions(isManualRetry = false) {
+
+    // --- Data Submission & Syncing ---
+    async function submitDataToBackend(submissionsBatch) {
         if (!navigator.onLine) {
-            showStatusMessage('Offline. Sync will be attempted when online.', 'warning');
-            if (isManualRetry) alert('You are offline. Please connect to the internet to sync.');
-            updateSyncNotification(); // Ensure notification reflects pending items
+            showStatusMessage('Offline. Cannot submit directly. Save offline.', 'warning');
+            // Data should have already been saved locally if this path is reached unexpectedly
+            return;
+        }
+        if (submissionsBatch.length === 0) return;
+
+        const webAppUrl = typeof WEB_APP_URL !== 'undefined' ? WEB_APP_URL : null;
+        if (!webAppUrl || webAppUrl === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+            showStatusMessage('Backend URL not configured. Cannot submit.', 'error');
+            // Save these submissions to pending if they weren't already
+            submissionsBatch.forEach(sub => saveSubmissionLocally(sub, sub.id)); // Treat as update if ID exists
             return;
         }
 
-        if (pendingSubmissions.length === 0) {
-            if (isManualRetry) showStatusMessage('No pending submissions to sync.', 'success');
-            updateSyncNotification();
-            return;
+        const submitButtonInForm = dynamicFormContainer.querySelector('form .button.submit');
+        if (submitButtonInForm) {
+            submitButtonInForm.disabled = true;
+            submitButtonInForm.innerHTML = '<span class="spinner"></span> Submitting...';
         }
-
-        const syncUrl = window.APP_CONFIG.googleWebAppUrl;
-        if (!syncUrl || syncUrl === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
-            showStatusMessage('Google Apps Script URL not configured. Cannot sync.', 'error');
-            if (isManualRetry) alert('Sync URL is not configured in config.js.');
-            return;
+        const syncAllButton = document.getElementById('syncAllPendingButton'); // from pending view
+        if (syncAllButton) {
+             syncAllButton.disabled = true;
+             syncAllButton.innerHTML = '<span class="spinner"></span> Syncing...';
         }
-
-        // Show spinner on sync button during sync attempt
-        if(retrySyncButton && isManualRetry){
-            retrySyncButton.innerHTML = '<span class="spinner"></span> Syncing...';
-            retrySyncButton.disabled = true;
-        }
-
-
-        // Create a batch of submissions to send
-        // The backend will expect an object with a "submissions" key, which is an array of submission objects
-        const batchToSend = { submissions: [...pendingSubmissions] };
 
 
         try {
-            showStatusMessage(`Syncing ${batchToSend.submissions.length} submission(s)...`, 'info', true);
-            const response = await fetch(syncUrl, {
+            const response = await fetch(webAppUrl, {
                 method: 'POST',
-                mode: 'cors', // Required for cross-origin requests to GAS web app
-                headers: {
-                    'Content-Type': 'application/json', // Sending as JSON
-                },
-                // body: JSON.stringify(pendingSubmissions[0]) // Send one by one initially
-                body: JSON.stringify(batchToSend) // Send as a batch
+                mode: 'cors',
+                headers: { 'Content-Type': 'text/plain' }, // GAS doPost often expects text/plain for raw JSON string
+                body: JSON.stringify({ submissions: submissionsBatch }) // Send as a batch object
             });
 
-            // GAS web apps often return text/plain for redirects, handle this
             const responseText = await response.text();
             let responseData;
-            try {
-                responseData = JSON.parse(responseText);
-            } catch (e) {
-                // If parsing fails, it might be a non-JSON response (e.g. HTML error page from GAS or simple text)
-                // Check if the response indicates success based on status and known GAS behavior
-                if (response.ok && responseText.toLowerCase().includes("success")) { // A simple success message might be returned
-                     responseData = { status: "success", message: responseText };
-                } else if (response.ok && responseText.includes("M&E Toolkit Web App is Live")) { // doGet response
-                     responseData = { status: "error", message: "Received doGet response. Check GAS doPost." };
-                }
-                else {
-                    throw new Error(`Non-JSON response from server: ${responseText.substring(0,100)}`);
+            try { responseData = JSON.parse(responseText); } catch (e) {
+                // Handle non-JSON or malformed JSON from GAS (e.g. HTML error page)
+                if (response.ok && responseText.toLowerCase().includes("success")) {
+                     responseData = { status: "success", message: responseText, successfullySyncedIds: submissionsBatch.map(s => s.id) };
+                } else {
+                    throw new Error(`Non-JSON response from server: ${responseText.substring(0, 200)}`);
                 }
             }
-
 
             if (response.ok && responseData.status === 'success') {
-                // Successful sync of the batch
-                const successfullySyncedIds = responseData.successfullySyncedIds || pendingSubmissions.map(s => s.id); // Assume all if no specific IDs returned
-
-                // Filter out successfully synced items
-                pendingSubmissions = pendingSubmissions.filter(s => !successfullySyncedIds.includes(s.id));
-
+                showStatusMessage(responseData.message || `${submissionsBatch.length} record(s) submitted successfully!`, 'success');
+                // Remove successfully synced items from pendingSubmissions
+                const syncedIds = responseData.successfullySyncedIds || submissionsBatch.map(s => s.id); // Assume all if not specified
+                pendingSubmissions = pendingSubmissions.filter(s => !syncedIds.includes(s.id));
                 localStorage.setItem('pendingSubmissions', JSON.stringify(pendingSubmissions));
-                showStatusMessage(responseData.message || `${successfullySyncedIds.length} submission(s) synced successfully!`, 'success');
-                updateSyncNotification();
+                updatePendingCount();
 
-                // If viewing pending submissions, refresh the list
-                if (formDisplayArea.querySelector('#pending-submissions-list')) {
-                    displayPendingSubmissions();
+                // If a single form was submitted and successful, reset that form
+                if (submissionsBatch.length === 1 && currentLoadedFormDefinition && submissionsBatch[0].formId === currentLoadedFormDefinition.formId) {
+                    const formElement = document.getElementById(`${currentLoadedFormDefinition.formId}-form`);
+                    if (formElement) formElement.reset();
+                    loadAndRenderForm(currentLoadedFormDefinition.formId); // Re-render blank
+                }
+                 // If currently viewing pending submissions, refresh the list
+                if (!pendingSubmissionsContainer.classList.contains('hidden')) {
+                    displayPendingSubmissionsView();
                 }
 
-            } else {
-                // Handle partial success or specific errors if backend provides details
-                if (responseData.successfullySyncedIds && responseData.successfullySyncedIds.length > 0) {
-                    const SucceededCount = responseData.successfullySyncedIds.length;
-                     pendingSubmissions = pendingSubmissions.filter(s => !responseData.successfullySyncedIds.includes(s.id));
-                     localStorage.setItem('pendingSubmissions', JSON.stringify(pendingSubmissions));
-                     showStatusMessage(`${SucceededCount} submission(s) synced. Others failed: ${responseData.message || 'Unknown server error'}`, 'warning');
-                } else {
-                    showStatusMessage(`Sync failed: ${responseData.message || 'Unknown server error'}`, 'error');
-                }
-                updateSyncNotification();
+
+            } else { // Partial success or error from backend
+                 showStatusMessage(`Submission issue: ${responseData.message || 'Unknown server error.'}`, 'error');
+                 // If some were successful, backend should tell us via successfullySyncedIds
+                 if (responseData.successfullySyncedIds && responseData.successfullySyncedIds.length > 0) {
+                    pendingSubmissions = pendingSubmissions.filter(s => !responseData.successfullySyncedIds.includes(s.id));
+                    localStorage.setItem('pendingSubmissions', JSON.stringify(pendingSubmissions));
+                    updatePendingCount();
+                 }
+                 // Any failed items remain in pendingSubmissions.
             }
-
         } catch (error) {
-            console.error('Sync error:', error);
-            showStatusMessage(`Sync error: ${error.message}. Data remains local.`, 'error');
-            updateSyncNotification();
+            console.error('Submission error:', error);
+            showStatusMessage(`Network or submission error: ${error.message}. Data saved locally.`, 'error');
+            // Ensure all items in this batch are saved locally if they weren't already
+            submissionsBatch.forEach(sub => saveSubmissionLocally(sub, sub.id));
         } finally {
-             if(retrySyncButton && isManualRetry){
-                retrySyncButton.innerHTML = 'Sync Now';
-                retrySyncButton.disabled = false;
+            if (submitButtonInForm) {
+                submitButtonInForm.disabled = false;
+                submitButtonInForm.textContent = 'Submit Online';
             }
-             checkOnlineStatus(); // Update online status display after attempt
-        }
-    }
-
-    // --- UI Updates (Status, Notifications) ---
-    function checkOnlineStatus() {
-        const isOnline = navigator.onLine;
-        if (offlineStatusDiv) {
-            offlineStatusDiv.style.display = isOnline ? 'none' : 'block';
-        }
-        if (isOnline) {
-            showStatusMessage('Connection restored. You are online.', 'info');
-            if (pendingSubmissions.length > 0) {
-                showStatusMessage(`You have ${pendingSubmissions.length} pending submissions. Attempting to sync.`, 'info');
-                attemptSyncSubmissions(); // Attempt to sync when back online
+             if (syncAllButton) {
+                syncAllButton.disabled = false;
+                syncAllButton.textContent = 'Sync All Pending';
             }
-        } else {
-            showStatusMessage('Connection lost. You are offline. Submissions will be saved locally.', 'warning');
-        }
-        updateSyncNotification(); // Also update the sync notification based on online status
-    }
-
-    function updateSyncNotification() {
-        if (!syncNotificationDiv || !syncCountSpan || !retrySyncButton || !viewPendingButton) return;
-
-        const count = pendingSubmissions.length;
-        syncCountSpan.textContent = count;
-
-        if (count > 0) {
-            syncNotificationDiv.style.display = 'block';
-            retrySyncButton.disabled = !navigator.onLine; // Disable sync if offline
-            if(!navigator.onLine) {
-                retrySyncButton.innerHTML = 'Sync (Offline)';
-            } else {
-                 retrySyncButton.innerHTML = 'Sync Now';
-            }
-        } else {
-            syncNotificationDiv.style.display = 'none';
         }
     }
 
-    function showStatusMessage(message, type = 'info', persist = false) {
-        if (!syncStatusDiv) return;
-        syncStatusDiv.textContent = message;
-        syncStatusDiv.className = `status-${type}`; // Use classes for styling: status-info, status-success, status-warning, status-error
-        syncStatusDiv.style.display = 'block';
-
-        // Clear message after a delay, unless persist is true
-        if (!persist) {
-            setTimeout(() => {
-                syncStatusDiv.style.display = 'none';
-            }, type === 'error' || type === 'warning' ? 7000 : 4000); // Longer for errors/warnings
+    async function attemptSyncAllSubmissions(isManualAttempt = true) {
+        if (!navigator.onLine) {
+            if(isManualAttempt) showStatusMessage("You are offline. Cannot sync.", "warning");
+            return;
         }
+        if (pendingSubmissions.length === 0) {
+            if(isManualAttempt) showStatusMessage("No pending submissions to sync.", "info");
+            return;
+        }
+        showStatusMessage(`Attempting to sync ${pendingSubmissions.length} pending submission(s)...`, "info");
+        await submitDataToBackend([...pendingSubmissions]); // Send a copy
     }
 
-    // --- View/Edit Pending Submissions ---
-    function displayPendingSubmissions() {
-        if (!formDisplayArea) return;
-        if (initialMessage) initialMessage.style.display = 'none';
-        document.querySelectorAll('.tab-link').forEach(link => link.classList.remove('active')); // Deactivate form tabs
-        currentFormId = null; // No specific form is "active" when viewing pending list
 
-        formDisplayArea.innerHTML = ''; // Clear current form
-        const title = document.createElement('h2');
-        title.textContent = 'Pending Submissions';
-        formDisplayArea.appendChild(title);
+    // --- Pending Submissions View ---
+    function displayPendingSubmissionsView() {
+        currentLoadedFormDefinition = null; // No specific form is active
+        currentEditingSubmissionId = null;
+        if (welcomeMessageP) welcomeMessageP.classList.add('hidden');
+        if (dynamicFormContainer) dynamicFormContainer.classList.add('hidden');
+        if (pendingSubmissionsContainer) pendingSubmissionsContainer.classList.remove('hidden');
+        document.querySelectorAll('#formNavList a').forEach(a => a.classList.remove('active'));
+
+
+        if (currentFormTitleH2) currentFormTitleH2.textContent = `Pending Offline Submissions (${pendingSubmissions.length})`;
+        pendingSubmissionsContainer.innerHTML = ''; // Clear previous list
 
         if (pendingSubmissions.length === 0) {
-            formDisplayArea.innerHTML += '<p>No pending submissions.</p>';
+            pendingSubmissionsContainer.innerHTML = '<p>No pending submissions found.</p>';
             return;
         }
 
         const list = document.createElement('ul');
         list.id = 'pending-submissions-list';
-        list.style.listStyle = 'none';
-        list.style.padding = '0';
-
-        pendingSubmissions.forEach((submission, index) => {
+        pendingSubmissions.forEach((submission) => {
             const listItem = document.createElement('li');
-            listItem.style.marginBottom = '10px';
-            listItem.style.padding = '10px';
-            listItem.style.border = '1px solid #eee';
-            listItem.style.borderRadius = '4px';
 
-            const formTitle = window.APP_CONFIG.forms[submission.formId]?.title || submission.formId;
-            const submissionTime = new Date(submission.submittedAt).toLocaleString();
-
-            // Attempt to find a primary display field (e.g., an ID or a name)
-            let primaryDisplay = `ID: ${submission.payload.id || submission.payload.caseId || 'N/A'}`;
-            if (submission.payload.activity) primaryDisplay += `, Activity: ${submission.payload.activity}`;
-            else if (submission.payload.dqaSite) primaryDisplay += `, Site: ${submission.payload.dqaSite}`;
-
-
-            listItem.innerHTML = `
-                <strong>${formTitle}</strong> - <em>${primaryDisplay}</em><br>
-                <small>Saved: ${submissionTime}</small>
+            const infoDiv = document.createElement('div');
+            infoDiv.classList.add('info');
+            const primaryIdField = Object.keys(submission.payload)[0]; // Use first field as a simple identifier
+            infoDiv.innerHTML = `
+                <strong>${submission.formTitle || submission.formId}</strong> - <em>${submission.payload[primaryIdField] || submission.id}</em><br>
+                <small>Saved: ${new Date(submission.submittedAt).toLocaleString()}</small>
             `;
+            listItem.appendChild(infoDiv);
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.classList.add('actions');
 
             const editButton = document.createElement('button');
             editButton.textContent = 'Edit';
-            editButton.classList.add('button');
-            editButton.style.marginRight = '5px';
-            editButton.style.padding = '5px 10px';
+            editButton.classList.add('button', 'action-button');
             editButton.onclick = () => {
-                // submission.id is the local unique ID for this pending item
-                renderForm(submission.formId, submission.payload, submission.id);
+                // Load the form definition for this submission's formId then render with its payload
+                const formKey = Object.keys(FORM_DEFINITIONS).find(key => FORM_DEFINITIONS[key].title === submission.formTitle || key === submission.formId);
+                if (formKey) {
+                    loadAndRenderForm(formKey, submission.payload, submission.id);
+                } else {
+                    showStatusMessage(`Cannot edit: Form definition for '${submission.formTitle || submission.formId}' not found.`, 'error');
+                }
             };
+            actionsDiv.appendChild(editButton);
 
             const deleteButton = document.createElement('button');
             deleteButton.textContent = 'Delete';
-            deleteButton.classList.add('button', 'secondary');
-            deleteButton.style.padding = '5px 10px';
+            deleteButton.classList.add('button', 'secondary-button'); // Or 'cancel' class
             deleteButton.onclick = () => {
                 if (confirm('Are you sure you want to delete this pending submission? This cannot be undone.')) {
-                    pendingSubmissions.splice(index, 1);
+                    pendingSubmissions = pendingSubmissions.filter(s => s.id !== submission.id);
                     localStorage.setItem('pendingSubmissions', JSON.stringify(pendingSubmissions));
-                    updateSyncNotification();
-                    displayPendingSubmissions(); // Refresh the list
+                    updatePendingCount();
+                    displayPendingSubmissionsView(); // Refresh the list
                     showStatusMessage('Submission deleted locally.', 'info');
                 }
             };
-
-            const actionsDiv = document.createElement('div');
-            actionsDiv.style.marginTop = '5px';
-            actionsDiv.appendChild(editButton);
             actionsDiv.appendChild(deleteButton);
             listItem.appendChild(actionsDiv);
-
             list.appendChild(listItem);
         });
-        formDisplayArea.appendChild(list);
-    }
+        pendingSubmissionsContainer.appendChild(list);
 
-
-    // --- Auto-sync on interval (optional, use with caution for battery) ---
-    // setInterval(attemptSyncSubmissions, 60000 * 5); // Sync every 5 minutes if online
-
-    // Initial population if a form is specified in URL hash (e.g. forms.html#SupervisorVerifications)
-    if (window.location.hash) {
-        const formIdFromHash = window.location.hash.substring(1);
-        const tabLink = formTabsContainer?.querySelector(`.tab-link[data-formid="${formIdFromHash}"]`);
-        if (tabLink && window.APP_CONFIG.forms[formIdFromHash]) {
-             setTimeout(()=> tabLink.click(), 0); // Ensure DOM is ready
+        if (pendingSubmissions.length > 0) {
+            const syncAllButton = document.createElement('button');
+            syncAllButton.id = 'syncAllPendingButton';
+            syncAllButton.textContent = 'Sync All Pending';
+            syncAllButton.classList.add('button', 'sync-offline');
+            syncAllButton.style.marginTop = '20px';
+            syncAllButton.onclick = () => attemptSyncAllSubmissions(true);
+            pendingSubmissionsContainer.appendChild(syncAllButton);
         }
-    } else if (formTabsContainer?.firstChild?.firstChild) {
-        // Optionally, auto-click the first tab
-        // setTimeout(()=> formTabsContainer.firstChild.firstChild.click(), 0);
     }
 
+    // --- UI Helper Functions ---
+    function updatePendingCount() {
+        if (pendingCountSpan) pendingCountSpan.textContent = pendingSubmissions.length;
+    }
+
+    function checkOnlineStatus() {
+        const isOnline = navigator.onLine;
+        if (offlineIndicatorDiv) offlineIndicatorDiv.classList.toggle('hidden', isOnline);
+        // Potentially disable/enable certain buttons based on online status
+        const onlineSubmitButtons = dynamicFormContainer.querySelectorAll('form .button.submit');
+        onlineSubmitButtons.forEach(btn => {
+            // btn.disabled = !isOnline; // This might be too aggressive; let submission logic handle it
+            // btn.title = isOnline ? "Submit data to server" : "Cannot submit online, please save offline";
+        });
+    }
+
+    function showStatusMessage(message, type = 'info') { // types: info, success, warning, error
+        if (!statusMessagesContainer) return;
+        statusMessagesContainer.textContent = message;
+        statusMessagesContainer.className = `status-${type}`; // Resets other classes
+        statusMessagesContainer.classList.remove('hidden');
+
+        setTimeout(() => {
+            statusMessagesContainer.classList.add('hidden');
+            statusMessagesContainer.className = ''; // Clear classes
+        }, type === 'error' || type === 'warning' ? 6000 : 4000);
+    }
+
+    console.log("forms.js loaded and initialized.");
 });
-console.log("forms.js loaded");

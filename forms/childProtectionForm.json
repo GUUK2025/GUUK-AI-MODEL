@@ -1,0 +1,62 @@
+{
+  "formId": "childProtection",
+  "title": "Child Protection Monitoring",
+  "sheetName": "ChildProtection",
+  "fields": [
+    {
+      "name": "caseId",
+      "label": "Case ID",
+      "type": "text",
+      "isId": true,
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "submissionTimestamp",
+      "label": "Submission Time",
+      "type": "datetime-local",
+      "autoPopulate": "datetime",
+      "required": true,
+      "readonlyOnEdit": true
+    },
+    {
+      "name": "assessmentDate",
+      "label": "Assessment Date",
+      "type": "date",
+      "autoPopulate": "date",
+      "required": true
+    },
+    {
+      "name": "childAge",
+      "label": "Child's Age (or Group)",
+      "type": "text",
+      "placeholder": "e.g., 7 or 6-11"
+    },
+    {
+      "name": "childSex",
+      "label": "Child's Sex",
+      "type": "select",
+      "options": ["", "Female", "Male", "Other"]
+    },
+    {
+      "name": "protectionConcern",
+      "label": "Protection Concern",
+      "type": "select",
+      "options": ["", "Unaccompanied Minor", "Separated Child", "Child Labor", "Child Marriage", "Abuse/Neglect", "Lack of Documentation", "Other"],
+      "required": true
+    },
+    {
+      "name": "actionTaken",
+      "label": "Action Taken/Referral",
+      "type": "textarea",
+      "required": true
+    },
+    {
+      "name": "caseWorker",
+      "label": "Case Worker",
+      "type": "text",
+      "fromUser": "userNameDisplay",
+      "readonly": true
+    }
+  ]
+}
